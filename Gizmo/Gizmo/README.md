@@ -1,4 +1,4 @@
-# ComfyGizmo v1.5.0
+# ComfyGizmo v1.5.2
 
 *Comfy-specific version of Gizmo.*
 
@@ -8,7 +8,7 @@
     * Reset selected axis rotation (default: `V`)
     * Reset **ALL** axis rotations (disabled by default)
   * Can disable the Gizmo placement visual.
-  * Can set the snap angles per 180 degrees from 2 - 256.
+  * Can set the snap angles per 180 degrees from 1 - 256.
   * Original Euler-style rotation.
  
 ## Installation
@@ -25,6 +25,11 @@
   4. Click "OK/Import local mod" on the pop-up for information.
   
 ## Changelog
+
+### 1.5.2
+  * Added ability to set custom stages for snap divisions. Values above 256 work but aren't displayed in the config.
+  * Using the increment and decrement hotkeys will shift to the next and previous stage respectively.
+  * Added custom UI for snap stages as an alternative to clogging up the top-left message HUD.
 
 ### 1.5.1
   * Added toggle to allow for v1.2.0 rotation scheme versus v1.3.0 rotation scheme. Restart required on enabling/disabling

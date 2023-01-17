@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Gizmo {
   public static class PluginConfig {
     public static ConfigEntry<int> SnapDivisions { get; private set; }
-    public static ConfigEntry<string> UserCustomSnapDivisions { get; private set; }
+    public static ConfigEntry<string> CustomSnapStages { get; private set; }
 
     public static ConfigEntry<KeyboardShortcut> XRotationKey;
     public static ConfigEntry<KeyboardShortcut> ZRotationKey;
@@ -16,16 +16,19 @@ namespace Gizmo {
     public static ConfigEntry<KeyboardShortcut> SnapDivisionIncrementKey;
     public static ConfigEntry<KeyboardShortcut> SnapDivisionDecrementKey;
 
-    public static ConfigEntry<bool> UseCustomSnapDivisions;
+    public static ConfigEntry<bool> UseCustomSnapStages;
     public static ConfigEntry<bool> ShowGizmoPrefab;
     public static ConfigEntry<bool> ResetRotationOnModeChange;
     public static ConfigEntry<bool> ResetRotationOnSnapDivisionChange;
     public static ConfigEntry<bool> NewGizmoRotation;
 
     public static int MaxSnapDivisions = 256;
-    public static int MinSnapDivisions = 2;
+    public static int MinSnapDivisions = 1;
 
-    public static void BindConfig(ConfigFile config) {
+    public static int MaxCustomStages = 360;
+    public static int MaxCustomSnapDivisions = 1000000000;
+
+        public static void BindConfig(ConfigFile config) {
       SnapDivisions =
           config.Bind(
               "Gizmo",
@@ -33,21 +36,21 @@ namespace Gizmo {
               16,
               new ConfigDescription(
               "Number of snap angles per 180 degrees. Vanilla uses 8.",
-              new AcceptableValueRange<int>(MinSnapDivisions, MaxSnapDivisions))); // TODO make a toggle to enable values outside of the range, but warn that it requires a restart to take effect in the config menu
+              new AcceptableValueRange<int>(MinSnapDivisions, MaxSnapDivisions)));
 
-      UseCustomSnapDivisions =
+      UseCustomSnapStages =
           config.Bind(
               "Gizmo",
-              "useCustomSnapDivisions",
+              "useCustomSnapStages",
               false,
-              "Enable use of custom snap divisions to move through with the increment & decrement hotkeys.");
+              "Enable use of custom snap division stages to move through with the increment & decrement hotkeys.");
 
-      UserCustomSnapDivisions =
+      CustomSnapStages =
           config.Bind(
               "Gizmo",
-              "userCustomSnapDivisions",
-              "4, 6, 10, 36, 360, 100, 1",
-              "Numbers are separated by commas and spaces are ignored. Click 'reset' for formatting and usage examples.");
+              "userCustomSnapStages",
+              "6, 10, 36, 360, 100, 1",
+              "Numbers are separated by commas and spaces are ignored. Click 'reset' for formatting and usage examples. Disabled if empty or 0.");
 
       XRotationKey =
           config.Bind(
@@ -97,14 +100,14 @@ namespace Gizmo {
               "Keys",
               "snapDivisionIncrement",
               new KeyboardShortcut(KeyCode.PageUp),
-              "Doubles snap divisions from current.");
+              "Shift to the next snap division stage. By default this doubles snap divisions from current.");
 
       SnapDivisionDecrementKey =
           config.Bind(
               "Keys",
               "snapDivisionDecrement",
               new KeyboardShortcut(KeyCode.PageDown),
-              "Halves snap divisions from current.");
+              "Shift to the previous snap division stage. By default this halves snap divisions from current.");
 
       ShowGizmoPrefab = config.Bind("UI", "showGizmoPrefab", true, "Show the Gizmo prefab in placement mode.");
 

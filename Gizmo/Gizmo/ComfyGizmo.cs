@@ -41,7 +41,7 @@ namespace Gizmo {
 
     static float _snapAngle;
 
-    static List<int> _customSnapDivisionList = new List<int>();
+    static List<int> _customSnapStageList = new List<int>();
     static int _customListIndex;
 
     Harmony _harmony;
@@ -49,17 +49,20 @@ namespace Gizmo {
     public void Awake() {
       BindConfig(Config);
 
-      SnapDivisions.SettingChanged += (sender, eventArgs) => _snapAngle = RemoveLastDecimal( 180f / SnapDivisions.Value );
-      UseCustomSnapDivisions.SettingChanged += (sender, eventArgs) => ResetSnapDivisionDefault();
-      UserCustomSnapDivisions.SettingChanged += (sender, eventArgs) => ConvertCustomSnapDivisionsToList();
+      SnapDivisions.SettingChanged += (sender, eventArgs) => UpdateSnapDivision();
+
+      UseCustomSnapStages.SettingChanged += (sender, eventArgs) => ConvertCustomSnapStagesToList();
+      UseCustomSnapStages.SettingChanged += (sender, eventArgs) => ResetSnapDivision();
+
+      CustomSnapStages.SettingChanged += (sender, eventArgs) => ConvertCustomSnapStagesToList();
+      CustomSnapStages.SettingChanged += (sender, eventArgs) => ResetSnapDivision();
 
       _gizmoPrefab = LoadGizmoPrefab();
      
       _harmony = Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), harmonyInstanceId: PluginGUID);
 
-      ConvertCustomSnapDivisionsToList();
-      InitializeIndex();
-      _snapAngle = RemoveLastDecimal( 180f / SnapDivisions.Value );
+      ConvertCustomSnapStagesToList();
+      ResetSnapDivision();
     }
 
     public void OnDestroy() {
@@ -192,12 +195,12 @@ namespace Gizmo {
     }
 
     static void CustomIncrement() { 
-      if(_customListIndex < _customSnapDivisionList.Count() - 1) {
+      if(_customListIndex < _customSnapStageList.Count() - 1) {
         _customListIndex += 1;
       } else { 
-        _customListIndex = _customSnapDivisionList.Count() - 1;
+        _customListIndex = _customSnapStageList.Count() - 1;
       }
-      UpdateValueCustom();
+      UpdateValueCustom("increased");
     }
 
     static void CustomDecrement() { 
@@ -206,32 +209,39 @@ namespace Gizmo {
       } else { 
         _customListIndex = 0;
       }
-      UpdateValueCustom();
+      UpdateValueCustom("decreased");
     }
 
-    static void UpdateValueCustom() { 
-      int newSnap = _customSnapDivisionList[_customListIndex];
-      if(_snapAngle != RemoveLastDecimal( 180f / newSnap )) {
-        SendFancyCustomMessage();
+    static void UpdateValueCustom(string verb) { 
+      if(_customListIndex >= _customSnapStageList.Count) { //failsafe
+        ResetSnapDivision();
+        return;
+      }
+      int newSnap = _customSnapStageList[_customListIndex];
+      if(_snapAngle != RemoveLastDecimal( 180f / newSnap )) { // only send the message if something actually changes
+        SendFancyCustomMessage(verb);
         SnapDivisions.Value = newSnap;
         _snapAngle = RemoveLastDecimal( 180f / newSnap );
       }
     }
 
-    static void SendFancyCustomMessage() { 
-      string text = "";
-      for(int i = 0; i < _customSnapDivisionList.Count; i++) { 
-        int snap = _customSnapDivisionList[i];
-        if(i == _customListIndex) { 
-          text += "[" + snap + "]";
-        } else { 
-          text += snap;
+    static void SendFancyCustomMessage(string verb) { 
+      if(MessageHud.instance != null) { // mod crashes when MessageHud is used during 'awake' because it only exists when in-game
+        string text = "";
+        for(int i = 0; i < _customSnapStageList.Count; i++) { 
+          int snap = _customSnapStageList[i];
+          if(i == _customListIndex) { 
+            text += "[" + snap + "]";
+          } else { 
+            text += snap;
+          }
+          if (i != _customSnapStageList.Count - 1) { 
+            text += " - ";
+          }
         }
-        if (i != _customSnapDivisionList.Count - 1) { 
-          text += " - ";
-        }
+        if(text == "[69]") { text += ", nice"; }
+        MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap stage {verb} to: {text}");
       }
-      MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap divisions shifted: {text}");
     }
 
     static void DefaultIncrement() {
@@ -257,24 +267,37 @@ namespace Gizmo {
         }
       }
     }
-
-    // TODO refactor these two 'reset snap division' functions, they feel weird, especially since the default one calls the custom one... i'm just intimidated by the Event Handling stuff
-    static void ResetSnapDivisionDefault() { 
-      if(UseCustomSnapDivisions.Value == false && SnapDivisions.Value != (int)SnapDivisions.DefaultValue) { 
-        SnapDivisions.Value = (int)SnapDivisions.DefaultValue;
-        MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap divisions set to {SnapDivisions.Value}");
-      } else if (_customSnapDivisionList.Contains(SnapDivisions.Value) == false) { 
-        ResetSnapDivisionCustom();
+    
+    // only used to handle changes to SnapDivisions directly, best if it has no effect when custom stages are enabled
+    static void UpdateSnapDivision() { 
+      if(UseCustomSnapStages.Value == false) {
+        _snapAngle = RemoveLastDecimal(180f / SnapDivisions.Value);
       }
     }
-
-    static void ResetSnapDivisionCustom() { 
+        
+    static void ResetSnapDivision() { 
+      bool bSendMessage = true;
       if(CustomSnapEnabled()) {
-        _customListIndex= 0;
-        SnapDivisions.Value = _customSnapDivisionList[_customListIndex];
-        if(MessageHud.instance != null) { 
-          MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap divisions set to {_customSnapDivisionList[_customListIndex]}");
+        if (_customSnapStageList.Contains(SnapDivisions.Value)) {
+          if(_customListIndex == _customSnapStageList.IndexOf(SnapDivisions.Value)) { 
+            bSendMessage = false;
+          } else { 
+            _customListIndex = _customSnapStageList.IndexOf(SnapDivisions.Value);
+          }
+        } else if(_customListIndex >= _customSnapStageList.Count - 1) { 
+          _customListIndex = _customSnapStageList.Count - 1;
         }
+        if (bSendMessage){ 
+          SendFancyCustomMessage("reset");
+        }
+        SnapDivisions.Value = _customSnapStageList[_customListIndex];
+        _snapAngle = RemoveLastDecimal( 180f / _customSnapStageList[_customListIndex] );
+      } else if(GenerateDefaultSnapDivisionList().Contains(SnapDivisions.Value) == false) {  
+        SnapDivisions.Value = (int)SnapDivisions.DefaultValue;
+        if(MessageHud.instance != null) { 
+          MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap divisions reset to {SnapDivisions.Value}");
+        }
+        _snapAngle = RemoveLastDecimal( 180f / SnapDivisions.Value );
       }
     }
 
@@ -418,24 +441,27 @@ namespace Gizmo {
       return _gizmoRoot.transform;
     }
 
-    static void ConvertCustomSnapDivisionsToList() {
-      _customSnapDivisionList.Clear();
-      string[] segments = UserCustomSnapDivisions.Value.Split(',');
+    static void ConvertCustomSnapStagesToList() {
+      _customSnapStageList.Clear();
+      int num = 0;
+      string[] segments = CustomSnapStages.Value.Split(',');
       foreach (string s in segments) {
-        if (s.Length > 0) {
+        if (s.Length > 0 && s.Length < Int64.MaxValue.ToString().Length) {
           if (IsAllDigits(s)) {
-            int num = Int32.Parse(s);
-            if (num >= 1) {
-              _customSnapDivisionList.Add(num);
+            long num64 = Int64.Parse(s);
+            if (num64 >= 1 && num64 <= Int32.MaxValue) {
+              num = (Int32)num64;
+            } else if (num64 > Int32.MaxValue) {
+              num = MaxCustomSnapDivisions;
+            } else { 
+              num = MinSnapDivisions;
+            }
+            if (_customSnapStageList.Count < MaxCustomStages) { 
+              _customSnapStageList.Add(num);
             }
           }
         }
-      } // TODO it's bad practice to have a function doing stuff that's not explicitly stated in the name, but the BepInEx event handling code is really confusing and I want this to trigger on startup... might need help with that one
-      if(_customSnapDivisionList.Contains(SnapDivisions.Value) == false) {
-        ResetSnapDivisionCustom();
-      } else { 
-        _customListIndex = _customSnapDivisionList.IndexOf(SnapDivisions.Value);
-      }
+      } 
     }
 
     static bool IsAllDigits(string text) {
@@ -463,21 +489,19 @@ namespace Gizmo {
     }
 
     static bool CustomSnapEnabled() {
-      return UseCustomSnapDivisions.Value == true && _customSnapDivisionList.Any();
+      return UseCustomSnapStages.Value == true && _customSnapStageList.Any();
     }
 
-    // since the index is not stored in the config, using the current Snap Divisions value to assume what the index was last time the player played
-    static void InitializeIndex() { 
-      if (_customSnapDivisionList.Contains(SnapDivisions.Value)) { 
-        _customListIndex = _customSnapDivisionList.IndexOf(SnapDivisions.Value);
-      } else { _customListIndex = 0;
-      }
+    static List<int> GenerateDefaultSnapDivisionList() {
+      List<int> defaults = new List<int>();
+      for(int i = MinSnapDivisions; i <= MaxSnapDivisions; i *= 2)
+        defaults.Add(i);
+      return defaults;
     }
 
 
 
 
     // TODO i would like the snap division messages to be faster, is there a way to do this, or perhaps display custom text on the HUD like Euler's Ruler or ClockMod?
-    // TODO Perhaps it should maintain the current index (or go to the last one if that index is out of bounds) when you update the UserCustomSnaps
   }
 }
