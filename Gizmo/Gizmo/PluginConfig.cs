@@ -5,6 +5,7 @@ using UnityEngine;
 namespace Gizmo {
   public static class PluginConfig {
     public static ConfigEntry<int> SnapDivisions { get; private set; }
+    public static ConfigEntry<string> UserCustomSnapDivisions { get; private set; }
 
     public static ConfigEntry<KeyboardShortcut> XRotationKey;
     public static ConfigEntry<KeyboardShortcut> ZRotationKey;
@@ -15,6 +16,7 @@ namespace Gizmo {
     public static ConfigEntry<KeyboardShortcut> SnapDivisionIncrementKey;
     public static ConfigEntry<KeyboardShortcut> SnapDivisionDecrementKey;
 
+    public static ConfigEntry<bool> UseCustomSnapDivisions;
     public static ConfigEntry<bool> ShowGizmoPrefab;
     public static ConfigEntry<bool> ResetRotationOnModeChange;
     public static ConfigEntry<bool> ResetRotationOnSnapDivisionChange;
@@ -30,8 +32,22 @@ namespace Gizmo {
               "snapDivisions",
               16,
               new ConfigDescription(
-                  "Number of snap angles per 180 degrees. Vanilla uses 8.",
-                 new AcceptableValueRange<int>(MinSnapDivisions, MaxSnapDivisions)));
+              "Number of snap angles per 180 degrees. Vanilla uses 8.",
+              new AcceptableValueRange<int>(MinSnapDivisions, MaxSnapDivisions))); // TODO make a toggle to enable values outside of the range, but warn that it requires a restart to take effect in the config menu
+
+      UseCustomSnapDivisions =
+          config.Bind(
+              "Gizmo",
+              "useCustomSnapDivisions",
+              false,
+              "Enable use of custom snap divisions to move through with the increment & decrement hotkeys.");
+
+      UserCustomSnapDivisions =
+          config.Bind(
+              "Gizmo",
+              "userCustomSnapDivisions",
+              "4, 6, 10, 36, 360, 100, 1",
+              "Numbers are separated by commas and spaces are ignored. Click 'reset' for formatting and usage examples.");
 
       XRotationKey =
           config.Bind(
@@ -88,7 +104,7 @@ namespace Gizmo {
               "Keys",
               "snapDivisionDecrement",
               new KeyboardShortcut(KeyCode.PageDown),
-              "Doubles snap divisions from current.");
+              "Halves snap divisions from current.");
 
       ShowGizmoPrefab = config.Bind("UI", "showGizmoPrefab", true, "Show the Gizmo prefab in placement mode.");
 
