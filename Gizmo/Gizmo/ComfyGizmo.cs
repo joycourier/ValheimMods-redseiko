@@ -43,6 +43,8 @@ namespace Gizmo {
 
     static List<int> _customSnapStageList = new List<int>();
     static int _customListIndex;
+    static int _previousCustomSnap;
+    static bool _bStagesEnabled;
 
     Harmony _harmony;
 
@@ -121,16 +123,16 @@ namespace Gizmo {
       [HarmonyPostfix]
       [HarmonyPatch(nameof(Player.UpdatePlacement))]
       static void UpdatePlacementPostfix(ref Player __instance, ref bool takeInput) {
-        if (__instance.m_placementMarkerInstance) {
+        if(__instance.m_placementMarkerInstance) {
           _gizmoRoot.gameObject.SetActive(ShowGizmoPrefab.Value && __instance.m_placementMarkerInstance.activeSelf);
           _gizmoRoot.position = __instance.m_placementMarkerInstance.transform.position + (Vector3.up * 0.5f);
         }
 
-        if (!__instance.m_buildPieces || !takeInput) {
+        if(!__instance.m_buildPieces || !takeInput) {
           return;
         }
 
-        if (Input.GetKeyDown(SnapDivisionIncrementKey.Value.MainKey)) {
+        if(Input.GetKeyDown(SnapDivisionIncrementKey.Value.MainKey)) {
           if(CustomSnapEnabled()) {
             CustomIncrement();
           } else {
@@ -140,7 +142,7 @@ namespace Gizmo {
             return;
         }
 
-        if (Input.GetKeyDown(SnapDivisionDecrementKey.Value.MainKey)) {
+        if(Input.GetKeyDown(SnapDivisionDecrementKey.Value.MainKey)) {
           if(CustomSnapEnabled()) {
             CustomDecrement();
           } else {
@@ -150,11 +152,11 @@ namespace Gizmo {
             return;
         }
 
-        if (Input.GetKey(CopyPieceRotationKey.Value.MainKey) && __instance.m_hoveringPiece != null) {
+        if(Input.GetKey(CopyPieceRotationKey.Value.MainKey) && __instance.m_hoveringPiece != null) {
           MatchPieceRotation(__instance.m_hoveringPiece);
         }
 
-        if (Input.GetKeyDown(ChangeRotationModeKey.Value.MainKey)) {
+        if(Input.GetKeyDown(ChangeRotationModeKey.Value.MainKey)) {
           ChangeRotationFrames();
           return;
         }
@@ -163,7 +165,7 @@ namespace Gizmo {
         _yGizmo.localScale = Vector3.one;
         _zGizmo.localScale = Vector3.one;
 
-        if (!_localFrame) {
+        if(!_localFrame) {
           Rotate();
         } else {
           RotateLocalFrame();
@@ -217,11 +219,11 @@ namespace Gizmo {
         ResetSnapDivision();
         return;
       }
-      int newSnap = _customSnapStageList[_customListIndex];
-      if(_snapAngle != RemoveLastDecimal( 180f / newSnap )) { // only send the message if something actually changes
+      //int newSnap = _customSnapStageList[_customListIndex];
+      if(_snapAngle != FixFloatingPointDecimals( 180f / _customSnapStageList[_customListIndex])) { // only send the message if something actually changes
         SendFancyCustomMessage(verb);
-        SnapDivisions.Value = newSnap;
-        _snapAngle = RemoveLastDecimal( 180f / newSnap );
+        //SnapDivisions.Value = newSnap;
+        _snapAngle = FixFloatingPointDecimals( 180f / _customSnapStageList[_customListIndex]);
       }
     }
 
@@ -239,7 +241,7 @@ namespace Gizmo {
             text += " - ";
           }
         }
-        if(text == "[69]") { text += ", nice"; }
+        if(text.Contains("[69]")) { text += " (nice)"; }
         MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap stage {verb} to: {text}");
       }
     }
@@ -259,8 +261,8 @@ namespace Gizmo {
     }
 
     static void ResetRotationIfEnabled() { 
-      if (ResetRotationOnSnapDivisionChange.Value) {
-        if (_localFrame) {
+      if(ResetRotationOnSnapDivisionChange.Value) {
+        if(_localFrame) {
             ResetRotationsLocalFrame();
         } else {
             ResetRotations();
@@ -270,34 +272,101 @@ namespace Gizmo {
     
     // only used to handle changes to SnapDivisions directly, best if it has no effect when custom stages are enabled
     static void UpdateSnapDivision() { 
-      if(UseCustomSnapStages.Value == false) {
-        _snapAngle = RemoveLastDecimal(180f / SnapDivisions.Value);
+      if(CustomSnapEnabled() == false) {
+        _snapAngle = FixFloatingPointDecimals(180f / SnapDivisions.Value);
       }
     }
-        
+
     static void ResetSnapDivision() { 
-      bool bSendMessage = true;
       if(CustomSnapEnabled()) {
-        if (_customSnapStageList.Contains(SnapDivisions.Value)) {
-          if(_customListIndex == _customSnapStageList.IndexOf(SnapDivisions.Value)) { 
-            bSendMessage = false;
+        if(UpdateCustomIndex() == true) { 
+          SendFancyCustomMessage("reset"); 
+        }
+        _snapAngle = FixFloatingPointDecimals( 180f / _customSnapStageList[_customListIndex] );
+        _bStagesEnabled= true;
+      } else {
+        ResetSnapDefault();
+        SendDefaultResetMessage();
+      }
+    }
+
+    static bool UpdateCustomIndex() {
+      if(_customListIndex >= 0 && _customListIndex < _customSnapStageList.Count) { // if the current index is within bounds
+        if(_customSnapStageList[_customListIndex] == _previousCustomSnap) { 
+          if (_bStagesEnabled == true) { 
+            return false; // the current value is already accurate to the list, nothing needs to change and no messages need to be sent
           } else { 
-            _customListIndex = _customSnapStageList.IndexOf(SnapDivisions.Value);
+            _bStagesEnabled = true;
+            return true; 
           }
-        } else if(_customListIndex >= _customSnapStageList.Count - 1) { 
-          _customListIndex = _customSnapStageList.Count - 1;
+        } else { 
+        return CurrentIndexWithinBounds(); 
         }
-        if (bSendMessage){ 
-          SendFancyCustomMessage("reset");
+      } else if(_customListIndex >= _customSnapStageList.Count) {
+        return CurrentIndexOutOfBounds();
+      } else { 
+        _customListIndex = 0; 
+        return true; // index was in the negatives somehow... but there is still a value present in the list so, let's just use 0
+      }
+    }
+
+      static bool CurrentIndexWithinBounds() { 
+        if(_customListIndex + 1 <= _customSnapStageList.Count - 1) { // make sure we don't go out of bounds in the if statement below
+          if(_customSnapStageList[_customListIndex + 1] == _previousCustomSnap) { 
+            _customListIndex++;
+            return true; // target number simply moved to the right, easy fix
+          }
         }
-        SnapDivisions.Value = _customSnapStageList[_customListIndex];
-        _snapAngle = RemoveLastDecimal( 180f / _customSnapStageList[_customListIndex] );
-      } else if(GenerateDefaultSnapDivisionList().Contains(SnapDivisions.Value) == false) {  
+        if(_customListIndex - 1 >= 0) { // again, making sure we don't go out of bounds
+          if (_customSnapStageList[_customListIndex - 1] == _previousCustomSnap) { 
+            _customListIndex--;
+            return true; // target number simply moved to the left, easy fix
+          } 
+        }
+        if(_customSnapStageList.Contains(_previousCustomSnap) == false) {
+          return true; // target number is no longer in the list but we're still within bounds, whatever number is in the current stage will be the new number
+        } else { 
+          _customListIndex = _customSnapStageList.IndexOf(_previousCustomSnap); 
+          return true; // out of bounds but the number IS in the new list somewhere else... do we use IndexOf and go to the first occurence? I guess that would make sense since this is a niche case
+        }
+      }
+
+      static bool CurrentIndexOutOfBounds() { 
+        if(_customListIndex - 1 <= _customSnapStageList.Count - 1) { // make sure we don't go out of bounds in the if statement below
+          if (_customSnapStageList[_customListIndex - 1] == _previousCustomSnap) { 
+            _customListIndex--;
+            return false; // target number simply moved to the left, no message required
+           }
+        } 
+        if(_customSnapStageList.Contains(_previousCustomSnap) == false) { 
+          _customListIndex = _customSnapStageList.Count - 1; 
+          return true; // target number is no longer in the list, reset to closest stage (which would be equal to Count-1 since we're currently out of bounds)  
+        } else { 
+          _customListIndex = _customSnapStageList.IndexOf(_previousCustomSnap); 
+          return true; // out of bounds but the number IS in the new list somewhere else... do we use IndexOf and go to the first occurence? I guess that would make sense since this is a niche case
+        }
+      }
+
+    static void ResetSnapDefault() { 
+      // are we at any of the 'default' numbers like 8, 16, 32 etc? if we're not then reset to the default value (typically 16), if we are then no need to change anything
+      /*
+      if(GenerateDefaultSnapDivisionList().Contains(SnapDivisions.Value) == false) { 
         SnapDivisions.Value = (int)SnapDivisions.DefaultValue;
-        if(MessageHud.instance != null) { 
-          MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Snap divisions reset to {SnapDivisions.Value}");
+      } */
+      _snapAngle = FixFloatingPointDecimals( 180f / SnapDivisions.Value );
+    }
+
+    static void SendDefaultResetMessage() { 
+      if(MessageHud.instance != null) { 
+        if(UseCustomSnapStages.Value == false && _bStagesEnabled == true) { 
+          MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"Custom snap stages disabled, snap divisions reset to {SnapDivisions.Value}");
+          _bStagesEnabled = false;
+        } else if (_customSnapStageList.Any() == false) { 
+          MessageHud.instance.ShowMessage(MessageHud.MessageType.TopLeft, $"No custom stages found, snap divisions reset to {SnapDivisions.Value}");
+          if(UseCustomSnapStages.Value == true) { 
+            _bStagesEnabled = true;
+          }
         }
-        _snapAngle = RemoveLastDecimal( 180f / SnapDivisions.Value );
       }
     }
 
@@ -442,6 +511,11 @@ namespace Gizmo {
     }
 
     static void ConvertCustomSnapStagesToList() {
+      if (_customSnapStageList.Any()) { 
+        _previousCustomSnap = _customSnapStageList[_customListIndex];
+      } else { 
+        _previousCustomSnap = 0;
+      }
       _customSnapStageList.Clear();
       int num = 0;
       string[] segments = CustomSnapStages.Value.Split(',');
@@ -478,7 +552,7 @@ namespace Gizmo {
     }
 
     // floating point oddities are causing issues with comparisons, using this to truncate the last digit to make sure they're the same
-    static float RemoveLastDecimal(float num) {
+    static float FixFloatingPointDecimals(float num) {
       string s = num.ToString();
       if (s.Length > 7) { 
         s = s.Substring(0, s.Length - 1);

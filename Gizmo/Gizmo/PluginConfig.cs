@@ -1,5 +1,4 @@
 ﻿using BepInEx.Configuration;
-
 using UnityEngine;
 
 namespace Gizmo {
@@ -28,7 +27,7 @@ namespace Gizmo {
     public static int MaxCustomStages = 360;
     public static int MaxCustomSnapDivisions = 1000000000;
 
-        public static void BindConfig(ConfigFile config) {
+    public static void BindConfig(ConfigFile config) {
       SnapDivisions =
           config.Bind(
               "Gizmo",
@@ -51,7 +50,7 @@ namespace Gizmo {
               "userCustomSnapStages",
               "6, 10, 36, 360, 100, 1",
               "Numbers are separated by commas and spaces are ignored. Click 'reset' for formatting and usage examples. Disabled if empty or 0.");
-
+              
       XRotationKey =
           config.Bind(
               "Keys",
