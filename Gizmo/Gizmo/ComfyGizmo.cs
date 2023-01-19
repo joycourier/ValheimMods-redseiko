@@ -31,9 +31,9 @@ namespace Gizmo {
     static Transform _yGizmoRoot;
     static Transform _zGizmoRoot;
 
-    static MeshRenderer _xRenderer;
-    static MeshRenderer _yRenderer;
-    static MeshRenderer _zRenderer;
+    static MeshRenderer _xRenderer = null;
+    static MeshRenderer _yRenderer = null;
+    static MeshRenderer _zRenderer = null;
 
     static GameObject _comfyGizmo;
     static Transform _comfyGizmoRoot;
@@ -64,8 +64,7 @@ namespace Gizmo {
       CustomSnapStages.SettingChanged += (sender, eventArgs) => ResetSnapDivision();
 
       _gizmoPrefab = LoadGizmoPrefab();
-      //_gizmoPrefab.AddComponent<MeshRenderer>();
-      //_gizmoRenderer = _gizmoPrefab.GetComponent<MeshRenderer>();
+      
      
       _harmony = Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), harmonyInstanceId: PluginGUID);
 
@@ -132,18 +131,12 @@ namespace Gizmo {
         if(__instance.m_placementMarkerInstance) {
           _gizmoRoot.gameObject.SetActive(ShowGizmoPrefab.Value && __instance.m_placementMarkerInstance.activeSelf);
           _gizmoRoot.position = __instance.m_placementMarkerInstance.transform.position + (Vector3.up * 0.5f);
-
-          _xRenderer = _gizmoRoot.Find("YRoot/ZRoot/XRoot/X").gameObject.GetComponent<MeshRenderer>();
-          _yRenderer = _gizmoRoot.Find("YRoot/Y").gameObject.GetComponent<MeshRenderer>();
-          _zRenderer = _gizmoRoot.Find("YRoot/ZRoot/Z").gameObject.GetComponent<MeshRenderer>();
-
-          _xRenderer.material.shader = Shader.Find("GUI/Text Shader");
-          _yRenderer.material.shader = Shader.Find("GUI/Text Shader");
-          _zRenderer.material.shader = Shader.Find("GUI/Text Shader");
-
-          _xRenderer.material.color = new Color(_xRenderer.material.color.r, _xRenderer.material.color.g, _xRenderer.material.color.b, GizmoOpacity.Value / 100f);
-          _yRenderer.material.color = new Color(_yRenderer.material.color.r, _yRenderer.material.color.g, _yRenderer.material.color.b, GizmoOpacity.Value / 100f);
-          _zRenderer.material.color = new Color(_zRenderer.material.color.r, _zRenderer.material.color.g, _zRenderer.material.color.b, GizmoOpacity.Value / 100f);
+          if(_xRenderer == null || _yRenderer == null || _zRenderer == null) {
+            AssignGizmoRenderers();
+            ChangeGizmoShaders();
+          } else { 
+            SetGizmoOpacity();
+          }
         }
 
         if(!__instance.m_buildPieces || !takeInput) {
@@ -526,6 +519,31 @@ namespace Gizmo {
       _zGizmoRoot = _gizmoRoot.Find("YRoot/ZRoot");
 
       return _gizmoRoot.transform;
+    }
+
+    static void AssignGizmoRenderers() { 
+      _xRenderer = _gizmoRoot.Find("YRoot/ZRoot/XRoot/X").gameObject.GetComponent<MeshRenderer>();
+      _yRenderer = _gizmoRoot.Find("YRoot/Y").gameObject.GetComponent<MeshRenderer>();
+      _zRenderer = _gizmoRoot.Find("YRoot/ZRoot/Z").gameObject.GetComponent<MeshRenderer>();
+    }
+    
+    // by default, the gizmo is using unlit colour shaders which don't support alpha (transparency). I was having trouble changing the shaders in unity and repacking it myself so i'm just changing it in-game instead.
+    static void ChangeGizmoShaders() { 
+      if(_xRenderer != null) { 
+        _xRenderer.material.shader = Shader.Find("GUI/Text Shader");
+        _yRenderer.material.shader = Shader.Find("GUI/Text Shader");
+        _zRenderer.material.shader = Shader.Find("GUI/Text Shader");
+      }
+    }
+
+    static void SetGizmoOpacity() { 
+      if(_xRenderer != null) { 
+        if(_xRenderer.material.color.a != GizmoOpacity.Value / 100f) { 
+          _xRenderer.material.color = new Color(_xRenderer.material.color.r, _xRenderer.material.color.g, _xRenderer.material.color.b, GizmoOpacity.Value / 100f);
+          _yRenderer.material.color = new Color(_yRenderer.material.color.r, _yRenderer.material.color.g, _yRenderer.material.color.b, GizmoOpacity.Value / 100f);
+          _zRenderer.material.color = new Color(_zRenderer.material.color.r, _zRenderer.material.color.g, _zRenderer.material.color.b, GizmoOpacity.Value / 100f);
+        }
+      }
     }
 
     static void ConvertCustomSnapStagesToList() {
