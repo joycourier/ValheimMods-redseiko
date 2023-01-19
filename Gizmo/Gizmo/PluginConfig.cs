@@ -5,6 +5,8 @@ namespace Gizmo {
   public static class PluginConfig {
     public static ConfigEntry<int> SnapDivisions { get; private set; }
     public static ConfigEntry<string> CustomSnapStages { get; private set; }
+    public static ConfigEntry<int> CurrentSnapStage { get; private set; } // TODO can you make config entries that are stored in the config file but not binded? like, just a value that it remembers on the user's machine?
+    public static ConfigEntry<int> GizmoOpacity { get; private set; }
 
     public static ConfigEntry<KeyboardShortcut> XRotationKey;
     public static ConfigEntry<KeyboardShortcut> ZRotationKey;
@@ -50,6 +52,15 @@ namespace Gizmo {
               "userCustomSnapStages",
               "6, 10, 36, 360, 100, 1",
               "Numbers are separated by commas and spaces are ignored. Click 'reset' for formatting and usage examples. Disabled if empty or 0.");
+            
+      GizmoOpacity =
+          config.Bind(
+              "UI",
+              "gizmoOpacity",
+              100,
+              new ConfigDescription(
+              "Set the opacity of the gizmo. 0 is transparent, 100 is fully opaque.",
+              new AcceptableValueRange<int>(0, 100)));
               
       XRotationKey =
           config.Bind(

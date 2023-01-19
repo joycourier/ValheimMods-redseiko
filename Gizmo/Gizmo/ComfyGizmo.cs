@@ -31,6 +31,10 @@ namespace Gizmo {
     static Transform _yGizmoRoot;
     static Transform _zGizmoRoot;
 
+    static MeshRenderer _xRenderer;
+    static MeshRenderer _yRenderer;
+    static MeshRenderer _zRenderer;
+
     static GameObject _comfyGizmo;
     static Transform _comfyGizmoRoot;
 
@@ -60,6 +64,8 @@ namespace Gizmo {
       CustomSnapStages.SettingChanged += (sender, eventArgs) => ResetSnapDivision();
 
       _gizmoPrefab = LoadGizmoPrefab();
+      //_gizmoPrefab.AddComponent<MeshRenderer>();
+      //_gizmoRenderer = _gizmoPrefab.GetComponent<MeshRenderer>();
      
       _harmony = Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), harmonyInstanceId: PluginGUID);
 
@@ -126,6 +132,18 @@ namespace Gizmo {
         if(__instance.m_placementMarkerInstance) {
           _gizmoRoot.gameObject.SetActive(ShowGizmoPrefab.Value && __instance.m_placementMarkerInstance.activeSelf);
           _gizmoRoot.position = __instance.m_placementMarkerInstance.transform.position + (Vector3.up * 0.5f);
+
+          _xRenderer = _gizmoRoot.Find("YRoot/ZRoot/XRoot/X").gameObject.GetComponent<MeshRenderer>();
+          _yRenderer = _gizmoRoot.Find("YRoot/Y").gameObject.GetComponent<MeshRenderer>();
+          _zRenderer = _gizmoRoot.Find("YRoot/ZRoot/Z").gameObject.GetComponent<MeshRenderer>();
+
+          _xRenderer.material.shader = Shader.Find("GUI/Text Shader");
+          _yRenderer.material.shader = Shader.Find("GUI/Text Shader");
+          _zRenderer.material.shader = Shader.Find("GUI/Text Shader");
+
+          _xRenderer.material.color = new Color(_xRenderer.material.color.r, _xRenderer.material.color.g, _xRenderer.material.color.b, GizmoOpacity.Value / 100f);
+          _yRenderer.material.color = new Color(_yRenderer.material.color.r, _yRenderer.material.color.g, _yRenderer.material.color.b, GizmoOpacity.Value / 100f);
+          _zRenderer.material.color = new Color(_zRenderer.material.color.r, _zRenderer.material.color.g, _zRenderer.material.color.b, GizmoOpacity.Value / 100f);
         }
 
         if(!__instance.m_buildPieces || !takeInput) {
@@ -423,7 +441,7 @@ namespace Gizmo {
     }
 
     static void HandleAxisInputLocalFrame(ref float rotation, Vector3 rotVector, Transform gizmo) {
-      gizmo.localScale = Vector3.one * 1.5f;
+      gizmo.localScale = Vector3.one * 5.5f;
       rotation = Math.Sign(Input.GetAxis("Mouse ScrollWheel")) * _snapAngle;
 
       if (Input.GetKey(ResetRotationKey.Value.MainKey)) {
@@ -498,7 +516,7 @@ namespace Gizmo {
     static Transform CreateGizmoRoot() {
       _gizmoRoot = Instantiate(_gizmoPrefab).transform;
 
-      // ??? Something about quaternions.
+      // assigning the red, green and blue rings of the gizmo to separate transforms for resizing
       _xGizmo = _gizmoRoot.Find("YRoot/ZRoot/XRoot/X");
       _yGizmo = _gizmoRoot.Find("YRoot/Y");
       _zGizmo = _gizmoRoot.Find("YRoot/ZRoot/Z");
